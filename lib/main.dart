@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:html';
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:manager_toolkit_website/document_page.dart';
+
+const String _basePath = 'lib/docs/';
 
 void main() {
   runApp(MyApp());
@@ -13,7 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'The Engineering Manager Toolbox',
       theme: ThemeData(
-        primarySwatch: Colors.red,
+        primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: MainPage(title: 'Toolbox'),
@@ -30,17 +32,32 @@ class MainPage extends StatefulWidget {
   _MainPageState createState() => _MainPageState();
 }
 
-Future<String> loadAsset() async {
-  return await rootBundle.loadString('lib/docs/Toolbox.md');
-}
-
 class _MainPageState extends State<MainPage> {
   Future<String> toolboxText;
+  Future<List<String>> toolboxDocs;
+
+  Future<String> loadAsset() async {
+    return await DefaultAssetBundle.of(context)
+        .loadString('lib/docs/Toolbox.md');
+  }
+
+  Future<List<String>> _getToolboxFiles() async {
+    final String manifestContent =
+        await DefaultAssetBundle.of(context).loadString('AssetManifest.json');
+    final Map<String, dynamic> manifestMap =
+        json.decode(manifestContent) as Map<String, dynamic>;
+
+    return manifestMap.keys
+        .where((String key) => key.contains(_basePath))
+        .where((String key) => key.contains('.md'))
+        .toList();
+  }
 
   @override
   void initState() {
     super.initState();
     toolboxText = loadAsset();
+    toolboxDocs = _getToolboxFiles();
   }
 
   @override
@@ -49,23 +66,46 @@ class _MainPageState extends State<MainPage> {
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Center(
-        child: FutureBuilder<String>(
-          future: toolboxText,
-          builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
-            if (snapshot.hasData) {
-              return Markdown(
-                data: snapshot.data,
+      drawer: Drawer(
+        child: FutureBuilder<List<String>>(
+          future: toolboxDocs,
+          builder:
+              (BuildContext context, AsyncSnapshot<List<String>> snapshot) {
+            if (snapshot == null ||
+                (snapshot.connectionState == ConnectionState.none &&
+                    snapshot.hasData == false)) {
+              return Container();
+            } else {
+              return ListView.builder(
+                itemCount: snapshot.data?.length ?? 0,
+                itemBuilder: (BuildContext context, int index) {
+                  final String titleText = Uri.decodeComponent(snapshot
+                      .data[index]
+                      .replaceFirst(RegExp(RegExp.escape(_basePath)), '')
+                      .replaceAll('.md', ''));
+                  return Center(
+                    child: ListTile(
+                      title: Text(titleText),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push<dynamic>(
+                          MaterialPageRoute<dynamic>(
+                            builder: (BuildContext context) => DocumentPage(
+                              documentTitle: titleText,
+                              documentPath: snapshot.data[index],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
               );
-            } else if (snapshot.hasError) {
-              return Text('${snapshot.error}');
             }
-
-            // By default, show a loading spinner.
-            return const CircularProgressIndicator();
           },
         ),
       ),
+      body: Container(),
     );
   }
 }
