@@ -1,0 +1,3 @@
+[submodule "lib/docs"]
+	path = lib/docs
+	url = https://github.com/Adroz/manager-toolkit.git

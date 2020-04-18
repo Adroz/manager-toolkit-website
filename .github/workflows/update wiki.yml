@@ -1,0 +1,23 @@
+name: Update Submodule
+on:
+  repository_dispatch:
+    types: [WikiUpdateEvent]
+jobs:
+  update_submodule:
+    name: Update Submodule
+    env:
+      my_secret: ${{secrets.commit_secret}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - run: |
+          git config --global user.email Adroz@users.noreply.github.com
+          git config --global user.name Adroz
+          git status
+          git remote set-url origin https://${{secrets.commit_secret}}@github.com/Adroz/manager-toolkit-website.git
+          git checkout -b master
+          git submodule update --init --recursive
+          git submodule update --remote --merge
+          git add --all
+          git commit -m "Update docs submodule"
+          git push origin master -f
